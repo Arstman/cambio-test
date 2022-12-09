@@ -273,9 +273,17 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 }
 
+
 /// Configure the pallet-template in pallets/template.
+
+
 impl pallet_template::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+    type TLDId = u32;
+}
+
+parameter_types! {
+    type StringLimit = 255;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

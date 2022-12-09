@@ -35,48 +35,46 @@ use frame_support::{pallet_prelude::{*, OptionQuery}, BoundedVec, Blake2_128Conc
         // The 
         type TLDId: Member + Parameter + MaxEncodedLen + Copy;
 
-
-        type DomainId: Member + Parameter + MaxEncodedLen + Copy;
-
         #[pallet::constant]
         type StringLimit: Get<u32>;
 	}
 
     pub type TLDName<T: Config> = BoundedVec<u8, T::StringLimit>;
     pub type DomainName<T: Config> = BoundedVec<u8, T::StringLimit>;
+    pub type Record<T: Config> = BoundedVec<u8, T::StringLimit>;
 
 	// The pallet's runtime storage items.
 	// https://docs.substrate.io/main-docs/build/runtime-storage/
 
     #[pallet::storage]
     #[pallet::storage_prefix = "TLD"]
-	#[pallet::getter(fn get_tld)]
+	#[pallet::getter(fn tld)]
     /// Details of a collection.
     pub(super) type TLD<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
-        T::TLDId,
         TLDName<T>,
+        T::AccountId,
     >;
 
     #[pallet::storage]
     #[pallet::storage_prefix = "Domain"]
-	#[pallet::getter(fn get_domain)]
+	#[pallet::getter(fn domain)]
     /// Details of a collection.
     pub(super) type Domain<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         TLDName<T>,
-        TLDName<T>,
+        DomainName<T>,
     >;
 
 
 
     #[pallet::storage]
-	#[pallet::getter(fn domain)]
+	#[pallet::getter(fn record)]
 	// Learn more about declaring storage items:
 	// https://docs.substrate.io/main-docs/build/runtime-storage/#declaring-storage-items
-	pub type DomainRecord<T: Config> = StorageDoubleMap<_, Blake2_128Concat,TLDName<T>, Blake2_128Concat, DomainName<T>, (), OptionQuery,>;
+	pub type DomainRecord<T: Config> = StorageDoubleMap<_, Blake2_128Concat,TLDName<T>, Blake2_128Concat, DomainName<T>, Record<T>, OptionQuery,>;
 
 
 	// Pallets use events to inform users when important changes are made.
@@ -87,6 +85,8 @@ use frame_support::{pallet_prelude::{*, OptionQuery}, BoundedVec, Blake2_128Conc
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
 		TLDStored { tld: TLDName<T>, who: T::AccountId },
+		DomainStored { tld: TLDName<T>, domain: DomainName<T>, who: T::AccountId },
+		DomainRecordStored { tld: TLDName<T>, domain: DomainName<T>, record: BoundedVec<u8,T::StringLimit>, who: T::AccountId },
 	}
 
 	// Errors inform users that something went wrong.
@@ -106,14 +106,14 @@ use frame_support::{pallet_prelude::{*, OptionQuery}, BoundedVec, Blake2_128Conc
 		/// An example dispatchable that takes a singles value as a parameter, writes the value to
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
-		pub fn mint_tld(origin: OriginFor<T>,tld_id: T::TLDId, tld_name: BoundedVec<u8, T::StringLimit>) -> DispatchResult {
+		pub fn mint_tld(origin: OriginFor<T>,tld_name: BoundedVec<u8, T::StringLimit>) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.
 			// https://docs.substrate.io/main-docs/build/origins/
 			let who = ensure_signed(origin)?;
 
 			// Update storage.
-			<TLD<T>>::insert(tld_id,tld_name);
+			<TLD<T>>::insert(tld_name.clone(), who.clone());
 
 			// Emit an event.
 			Self::deposit_event(Event::TLDStored { tld: tld_name, who });
@@ -128,11 +128,11 @@ use frame_support::{pallet_prelude::{*, OptionQuery}, BoundedVec, Blake2_128Conc
 			// https://docs.substrate.io/main-docs/build/origins/
 			let who = ensure_signed(origin)?;
 
-			// Update storage.
-			<Domain<T>>::insert(tld_name,domain_name);
+		// Update storage.
+			<Domain<T>>::insert(&tld_name,&domain_name);
 
 			// Emit an event.
-			Self::deposit_event(Event::TLDStored { tld: tld_name, who });
+			Self::deposit_event(Event::DomainStored { tld:tld_name, domain: domain_name , who } );
 			// Return a successful DispatchResultWithPostInfo
 			Ok(())
 		}
@@ -140,21 +140,15 @@ use frame_support::{pallet_prelude::{*, OptionQuery}, BoundedVec, Blake2_128Conc
 
 		/// An example dispatchable that may throw a custom error.
 		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1).ref_time())]
-		pub fn cause_error(origin: OriginFor<T>) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
+		pub fn mint_record(origin: OriginFor<T>, tld_name: TLDName<T>, domain_name: DomainName<T>, record: Record<T>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
 
-			// Read a value from storage.
-			match <Something<T>>::get() {
-				// Return an error if the value has not been set.
-				None => return Err(Error::<T>::NoneValue.into()),
-				Some(old) => {
-					// Increment the value read from storage; will error in the event of overflow.
-					let new = old.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
-					// Update the value in storage with the incremented result.
-					<Something<T>>::put(new);
-					Ok(())
-				},
-			}
+            <DomainRecord<T>>::insert(tld_name.clone(), domain_name.clone(), record.clone());
+            Self::deposit_event(Event::DomainRecordStored { tld: tld_name , domain: domain_name, record, who });
+            Ok(())
+
+
+			
 		}
 	}
 }
