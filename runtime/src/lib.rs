@@ -280,10 +280,11 @@ impl pallet_sudo::Config for Runtime {
 impl pallet_template::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
     type TLDId = u32;
+    type StringLimit = StringLimit;
 }
 
 parameter_types! {
-    type StringLimit = 255;
+    pub const StringLimit:u32 = 255;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
