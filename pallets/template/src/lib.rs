@@ -5,6 +5,7 @@
 /// <https://docs.substrate.io/reference/frame-pallets/>
 pub use pallet::*;
 
+mod types;
 // #[cfg(test)]
 // mod mock;
 
@@ -13,15 +14,17 @@ pub use pallet::*;
 
 // #[cfg(feature = "runtime-benchmarks")]
 // mod benchmarking;
+use types::*;
 
 
 #[frame_support::pallet]
 pub mod pallet {
 
-use codec::{DecodeLength, Encode, EncodeLike};
-use frame_support::{pallet_prelude::*};
+    use frame_support::{pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
-    use scale_info::TypeInfo;
+
+use crate::types::RecordType;
+    // use scale_info::TypeInfo;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -70,11 +73,18 @@ use frame_support::{pallet_prelude::*};
 
 
 
+ //    #[pallet::storage]
+	// #[pallet::getter(fn record)]
+	// // Learn more about declaring storage items:
+	// // https://docs.substrate.io/main-docs/build/runtime-storage/#declaring-storage-items
+	// pub type DomainRecord<T: Config> = StorageDoubleMap<_, Blake2_128Concat,TLDName<T>, Blake2_128Concat, DomainName<T>, Record<T>, OptionQuery,>;
+
+
     #[pallet::storage]
-	#[pallet::getter(fn record)]
+	#[pallet::getter(fn dns_record)]
 	// Learn more about declaring storage items:
 	// https://docs.substrate.io/main-docs/build/runtime-storage/#declaring-storage-items
-	pub type DomainRecord<T: Config> = StorageDoubleMap<_, Blake2_128Concat,TLDName<T>, Blake2_128Concat, DomainName<T>, Record<T>, OptionQuery,>;
+	pub type DNSRecord<T: Config> = StorageNMap<_, (NMapKey<Blake2_128Concat,TLDName<T>>, NMapKey<Blake2_128Concat, DomainName<T>>, NMapKey<Blake2_128Concat, RecordType>), Record<T>, OptionQuery,>;
 
 
 	// Pallets use events to inform users when important changes are made.
@@ -140,10 +150,18 @@ use frame_support::{pallet_prelude::*};
 
 		/// An example dispatchable that may throw a custom error.
 		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1).ref_time())]
-		pub fn mint_record(origin: OriginFor<T>, tld_name: TLDName<T>, domain_name: DomainName<T>, record: Record<T>) -> DispatchResult {
+		pub fn mint_record(origin: OriginFor<T>, tld_name: TLDName<T>, domain_name: DomainName<T>, dns_type: RecordType, record: Record<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-            <DomainRecord<T>>::insert(tld_name.clone(), domain_name.clone(), record.clone());
+            // <DomainRecord<T>>::insert(tld_name.clone(), domain_name.clone(), record.clone());
+            <DNSRecord<T>>::insert(
+                (
+                        tld_name.clone(),
+                        domain_name.clone(),
+                        dns_type.clone(),
+            ),
+                    record.clone(),
+                );
             Self::deposit_event(Event::DomainRecordStored { tld: tld_name , domain: domain_name, record, who });
             Ok(())
 
